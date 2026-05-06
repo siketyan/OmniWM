@@ -63,3 +63,20 @@ Action: direct-dry-run
 Reason: Applies without manual edits, touches only Swift/test files, and passes the staged no-Zig audit.
 Backport commit: this commit
 ```
+
+### `de13d4ccdb0aa683c79fe2fb4badec96bf362a80`
+
+```text
+Commit: de13d4ccdb0aa683c79fe2fb4badec96bf362a80
+Original subject: Fix command hotkey capture on non-QWERTY keyboards
+Touched Swift files:
+- Sources/OmniWM/UI/KeyRecorderView.swift
+- Tests/OmniWMTests/KeyRecorderViewTests.swift
+Touched Zig/build files: none
+Bug reproducible on 6fde9b9? unknown; source commit adds focused regression coverage for non-QWERTY capture
+Tests added or updated:
+- KeyRecorderViewTests
+Action: direct-dry-run
+Reason: Clean dry-run and cherry-pick, touches only Swift/test files, and passes the staged no-Zig audit.
+Backport commit: this commit
+```
