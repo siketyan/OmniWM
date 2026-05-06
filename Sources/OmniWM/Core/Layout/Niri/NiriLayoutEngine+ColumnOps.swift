@@ -284,6 +284,11 @@ extension NiriLayoutEngine {
         let cols = columns(in: workspaceId)
         guard let currentIdx = columnIndex(of: column, in: workspaceId) else { return false }
 
+        let step = (direction == .right) ? 1 : -1
+        let targetIdx = currentIdx + step
+        guard targetIdx >= 0, targetIdx < cols.count else { return false }
+        if targetIdx == currentIdx { return false }
+
         let currentColX = state.columnX(at: currentIdx, columns: cols, gap: gaps)
         let nextColX = currentIdx + 1 < cols.count
             ? state.columnX(at: currentIdx + 1, columns: cols, gap: gaps)
@@ -293,15 +298,8 @@ extension NiriLayoutEngine {
                     : workingFrame.width / CGFloat(effectiveMaxVisibleColumns(in: workspaceId))
             ) + gaps
 
-        let step = (direction == .right) ? 1 : -1
-        guard let targetIdx = wrapIndex(currentIdx + step, total: cols.count, in: workspaceId) else { return false }
-
-        if targetIdx == currentIdx { return false }
-
-        let targetColumn = cols[targetIdx]
-
         guard let root = roots[workspaceId] else { return false }
-        root.swapChildren(column, targetColumn)
+        root.insertChild(column, at: targetIdx)
 
         let newCols = columns(in: workspaceId)
         let viewOffsetDelta = -state.columnX(at: currentIdx, columns: newCols, gap: gaps) + currentColX

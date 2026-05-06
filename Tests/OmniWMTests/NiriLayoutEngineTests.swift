@@ -4426,6 +4426,95 @@ private func makeCenteredCrossMonitorFixture(
         #expect(orderedWindowIds == [focusedWindow.token.windowId, targetWindow.token.windowId, trailingWindow.token.windowId])
     }
 
+    @Test func moveColumnRightNoOpsAtEdgeEvenWhenInfiniteLoopIsEnabled() {
+        let engine = NiriLayoutEngine(maxWindowsPerColumn: 1, maxVisibleColumns: 2, infiniteLoop: true)
+        let wsId = UUID()
+        let root = NiriRoot(workspaceId: wsId)
+        engine.roots[wsId] = root
+
+        let leftColumn = NiriContainer()
+        let rightColumn = NiriContainer()
+        root.appendChild(leftColumn)
+        root.appendChild(rightColumn)
+        assignFixedWidths(root.columns)
+
+        let leftWindow = NiriWindow(token: makeTestHandle(pid: 521).id)
+        let rightWindow = NiriWindow(token: makeTestHandle(pid: 522).id)
+        leftColumn.appendChild(leftWindow)
+        rightColumn.appendChild(rightWindow)
+        engine.tokenToNode[leftWindow.token] = leftWindow
+        engine.tokenToNode[rightWindow.token] = rightWindow
+
+        var state = ViewportState()
+        state.selectedNodeId = rightWindow.id
+        state.activeColumnIndex = 1
+        state.viewOffsetPixels = .static(0)
+
+        let moved = engine.moveColumn(
+            rightColumn,
+            direction: .right,
+            in: wsId,
+            motion: .disabled,
+            state: &state,
+            workingFrame: CGRect(x: 0, y: 0, width: 1200, height: 900),
+            gaps: 8
+        )
+
+        let orderedWindowIds = engine.columns(in: wsId).compactMap { $0.windowNodes.first?.token.windowId }
+        #expect(!moved)
+        #expect(orderedWindowIds == [leftWindow.token.windowId, rightWindow.token.windowId])
+        #expect(state.activeColumnIndex == 1)
+    }
+
+    @Test func moveColumnRightUsesRemoveInsertOrderAndPreservesViewport() {
+        let engine = NiriLayoutEngine(maxWindowsPerColumn: 1, maxVisibleColumns: 3)
+        let wsId = UUID()
+        let root = NiriRoot(workspaceId: wsId)
+        engine.roots[wsId] = root
+
+        let leftColumn = NiriContainer()
+        let movingColumn = NiriContainer()
+        let rightColumn = NiriContainer()
+        root.appendChild(leftColumn)
+        root.appendChild(movingColumn)
+        root.appendChild(rightColumn)
+        assignWidths(root.columns, widths: [300, 400, 500])
+
+        let leftWindow = NiriWindow(token: makeTestHandle(pid: 531).id)
+        let movingWindow = NiriWindow(token: makeTestHandle(pid: 532).id)
+        let rightWindow = NiriWindow(token: makeTestHandle(pid: 533).id)
+        leftColumn.appendChild(leftWindow)
+        movingColumn.appendChild(movingWindow)
+        rightColumn.appendChild(rightWindow)
+        engine.tokenToNode[leftWindow.token] = leftWindow
+        engine.tokenToNode[movingWindow.token] = movingWindow
+        engine.tokenToNode[rightWindow.token] = rightWindow
+
+        var state = ViewportState()
+        state.selectedNodeId = movingWindow.id
+        state.activeColumnIndex = 1
+        state.viewOffsetPixels = .static(0)
+
+        let moved = engine.moveColumn(
+            movingColumn,
+            direction: .right,
+            in: wsId,
+            motion: .disabled,
+            state: &state,
+            workingFrame: CGRect(x: 0, y: 0, width: 1200, height: 900),
+            gaps: 8
+        )
+
+        let columns = engine.columns(in: wsId)
+        let orderedWindowIds = columns.compactMap { $0.windowNodes.first?.token.windowId }
+        let viewStart = viewportStart(for: state, columns: columns, gap: 8)
+
+        #expect(moved)
+        #expect(orderedWindowIds == [leftWindow.token.windowId, rightWindow.token.windowId, movingWindow.token.windowId])
+        #expect(state.activeColumnIndex == 2)
+        #expect(abs(viewStart - 308) < 0.1)
+    }
+
     @Test func moveWindowToWorkspaceThenInsertColumnPreservesSourceFallbackSelection() {
         let engine = NiriLayoutEngine(maxWindowsPerColumn: 3, maxVisibleColumns: 3)
         let sourceWorkspaceId = UUID()
