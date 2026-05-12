@@ -68,14 +68,36 @@ jobs:
           cp -R ThirdParty/ghostty/macos/GhosttyKit.xcframework Frameworks/
 
           ghostty_archive="Frameworks/GhosttyKit.xcframework/macos-arm64_x86_64/libghostty.a"
-          ghostty_internal_archive="Frameworks/GhosttyKit.xcframework/macos-arm64_x86_64/ghostty-internal.a"
-          if [ ! -f "$ghostty_archive" ] && [ -f "$ghostty_internal_archive" ]; then
-            cp "$ghostty_internal_archive" "$ghostty_archive"
+          has_ghostty_public_api() {
+            nm -g "$1" 2>/dev/null | grep -Eq '(^|[[:space:]])_?ghostty_app_new$'
+          }
+
+          ghostty_public_archive=""
+          while IFS= read -r candidate; do
+            if has_ghostty_public_api "$candidate"; then
+              ghostty_public_archive="$candidate"
+              break
+            fi
+          done < <(
+            find ThirdParty/ghostty/.zig-cache ThirdParty/ghostty/zig-out ThirdParty/ghostty/macos Frameworks \
+              -type f \( -name 'libghostty.a' -o -name '*.a' \) 2>/dev/null
+          )
+
+          if [ -n "$ghostty_public_archive" ]; then
+            echo "Using Ghostty public API archive: $ghostty_public_archive"
+            cp "$ghostty_public_archive" "$ghostty_archive"
           fi
 
           if [ ! -f "$ghostty_archive" ]; then
             echo "::error::GhosttyKit build did not produce $ghostty_archive"
             find Frameworks -maxdepth 4 -print
+            exit 1
+          fi
+          if ! has_ghostty_public_api "$ghostty_archive"; then
+            echo "::error::$ghostty_archive does not export Ghostty public API symbols."
+            echo "Available Ghostty archives:"
+            find ThirdParty/ghostty/.zig-cache ThirdParty/ghostty/zig-out ThirdParty/ghostty/macos Frameworks \
+              -type f \( -name 'libghostty.a' -o -name '*.a' \) -print 2>/dev/null
             exit 1
           fi
 
